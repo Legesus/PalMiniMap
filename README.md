@@ -1,3 +1,5 @@
+> **Fork notice:** this is the **oil-radar fork** of [jeankassio/PalMiniMap](https://github.com/jeankassio/PalMiniMap) — it adds crude-oil field markers and per-material icons and toggles for ore, coal, sulfur and quartz. Not affiliated with the upstream project. An upstream PR is deliberately not planned.
+
 # PalMiniMap
 PalMiniMap — a live minimap radar for Palworld 1.0+
 Based on Paldar by T3R3NC3B.
