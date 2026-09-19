@@ -83,7 +83,7 @@ local ICON = {
     -- at all (T_icon_compass_00..16), which is why a search by name never
     -- turned them up: 03 is a pickaxe, 09 an apple, 13 a lotus, 15 a fishing
     -- rod. Those are the pictures for the resource markers below.
-    ore     = ui("T_icon_compass_03"),
+    ore     = itemIcon("T_itemicon_Material_CopperOre"),
     lotus   = ui("T_icon_compass_13"),
     forage  = ui("T_icon_compass_09"),
     junk    = ui("T_icon_compass_Search_Junk"),
@@ -98,6 +98,10 @@ local ICON = {
     -- have a weak outline and VANISH on snow.
     effigy  = itemIcon("T_itemicon_Relic"),
     fruit   = itemIcon("T_itemicon_Consume_SkillCard_Neutral"),
+    oil     = itemIcon("T_itemicon_Material_CrudeOil"),
+    coal    = itemIcon("T_itemicon_Material_Coal"),
+    sulfur  = itemIcon("T_itemicon_Material_Sulfur"),
+    quartz  = itemIcon("T_itemicon_Material_Quartz"),
     -- Notes are the one marker with no game art at all. Searched: every
     -- T_icon_compass_* (including the seventeen numbered ones, which have no
     -- descriptive name and so escape a search by name), T_icon_Compass_Quest_*,
@@ -291,39 +295,47 @@ end
 -- for. `showResources` also defaults to OFF for the same reason.
 local RESOURCE_RULES = {
     -- checked in order; first match wins, so the specific ones come first
-    { pat = "Junk",        icon = "junk"   },
-    { pat = "Lotus",       icon = "lotus"  },
-    { pat = "RockIron",    icon = "ore"    },
-    { pat = "RockCopper",  icon = "ore"    },
-    { pat = "RockCoal",    icon = "ore"    },
-    { pat = "RockQuartz",  icon = "ore"    },
-    { pat = "Sulfur",      icon = "ore"    },
-    { pat = "Ore",         icon = "ore"    },   -- SkyIslandOre, WorldTreeOre
-    { pat = "Crystal",     icon = "ore"    },   -- Crystal, PalCrystal
-    { pat = "NightStone",  icon = "ore"    },
-    { pat = "Mushroom",    icon = "forage" },
-    { pat = "Berry",       icon = "forage" },
-    { pat = "Poppy",       icon = "forage" },
-    { pat = "AffectionFruit", icon = "forage" },
+    { pat = "Junk",           icon = "junk",   cfg = "showResources" },
+    { pat = "Lotus",          icon = "lotus",  cfg = "showResources" },
+    { pat = "RockIron",       icon = "ore",    cfg = "showOre"       },
+    { pat = "RockCopper",     icon = "ore",    cfg = "showOre"       },
+    { pat = "RockCoal",       icon = "ore",    cfg = "showCoal"      },
+    { pat = "RockQuartz",     icon = "ore",    cfg = "showQuartz"    },
+    { pat = "Sulfur",         icon = "ore",    cfg = "showSulfur"    },
+    { pat = "Ore",            icon = "ore",    cfg = "showOre"       },   -- SkyIslandOre, WorldTreeOre
+    { pat = "Crystal",        icon = "ore",    cfg = "showOre"       },   -- Crystal, PalCrystal
+    { pat = "NightStone",     icon = "ore",    cfg = "showOre"       },
+    { pat = "Mushroom",       icon = "forage", cfg = "showResources" },
+    { pat = "Berry",          icon = "forage", cfg = "showResources" },
+    { pat = "Poppy",          icon = "forage", cfg = "showResources" },
+    { pat = "AffectionFruit", icon = "forage", cfg = "showResources" },
 }
 
-local resourceIconFor = {}    -- class name -> texture, or false for "skip"
+local resourceIconFor = {}    -- class name -> matched rule, or false for "skip"
 
-local function resourceIcon(actor)
+local function resourceIcon(actor, cfg)
     local ok, cls = pcall(rawClassName, actor)
     if not ok or type(cls) ~= "string" then return nil end
     local known = resourceIconFor[cls]
-    if known ~= nil then return known or nil end
+    if known ~= nil then
+        -- class -> rule never changes, so it is memoized above; whether the
+        -- rule's material is wanted RIGHT NOW does, so that part is asked
+        -- per call. nil declines the actor, per the iconFor contract.
+        if known == false then return nil end
+        if cfg[known.cfg] ~= true then return nil end
+        return ICON[known.icon]
+    end
 
     local pick = nil
     for i = 1, #RESOURCE_RULES do
         local r = RESOURCE_RULES[i]
-        if cls:find(r.pat, 1, true) then pick = ICON[r.icon]; break end
+        if cls:find(r.pat, 1, true) then pick = r; break end
     end
     -- `false` and not nil: nil means "not resolved yet" to the line above,
     -- so a class we mean to skip has to be remembered as a definite no.
     resourceIconFor[cls] = pick or false
-    return pick
+    if pick == nil or cfg[pick.cfg] ~= true then return nil end
+    return ICON[pick.icon]
 end
 -- ---------------------------------------------------------------
 
@@ -518,6 +530,12 @@ end
 -- resource scan drops the rubble it does not want out of a class it has to
 -- walk anyway. Kinds without an `iconFor` keep their single ICON[kind] and
 -- pay no extra reflection.
+--
+-- `anyCfg` widens the kind's gate to "ANY of these toggles on". The
+-- resource kind needs it because its per-material markers share ONE walk:
+-- turning forage off must not stop the walk, or the ore/coal/sulfur/
+-- quartz toggles would do nothing. The walk keeps going while any listed
+-- toggle is on, and `resourceIcon` decides per marker what survives.
 local STATIC_KINDS = {
     { cfg = "showChests",     class = "PalMapObjectTreasureBox",                kind = "chest",   collected = chestOpened },
     { cfg = "showEggs",       class = "PalMapObjectPalEgg",                     kind = "egg",     collected = mapObjectGone, iconFor = eggIcon },
@@ -530,7 +548,9 @@ local STATIC_KINDS = {
     { cfg = "showEnemyCamps", class = "PalNPCCampSpawnerBase",                  kind = "enemy"    },
     { cfg = "showTowers",     class = "PalBossTower",                           kind = "tower"    },
     -- 2.2.18: things the game's own compass marks that the minimap did not.
-    { cfg = "showResources",  class = "PalMapObjectSpawnerSimple",              kind = "ore",     iconFor = resourceIcon },
+    { cfg = "showResources",  class = "PalMapObjectSpawnerSimple",              kind = "ore",     iconFor = resourceIcon,
+      anyCfg = { "showResources", "showOre", "showCoal", "showSulfur", "showQuartz" } },
+    { cfg = "showOil",        class = "BP_LevelObject_OilField_C",              kind = "oil"      },
     { cfg = "showFishing",    class = "PalFishingSpotArea",                     kind = "fishing"  },
     { cfg = "showTreasureMaps", class = "PalTreasureMapPoint",                  kind = "dig"      },
     { cfg = "showDeaths",     class = "BP_MapObject_DeathPenaltyChest_C",       kind = "death"    },
@@ -2043,8 +2063,20 @@ local ACTORS_PER_STEP = 48
 local CURSOR_MAX_AGE = 3.0
 local cursor = nil        -- { spec, all, total, index, list, count, startedAt }
 
+-- A kind's gate: its own toggle - or, when the row lists `anyCfg` (a kind
+-- whose members carry per-marker toggles), ANY of them. See STATIC_KINDS.
+local function kindEnabled(cfg, spec)
+    if spec.anyCfg ~= nil then
+        for i = 1, #spec.anyCfg do
+            if cfg[spec.anyCfg[i]] == true then return true end
+        end
+        return false
+    end
+    return cfg[spec.cfg] == true
+end
+
 local function wantedKind(cfg, spec)
-    if cfg[spec.cfg] == true then return true end
+    if kindEnabled(cfg, spec) then return true end
     -- The autohide used to force this scan so it had camp positions to
     -- measure a radius against. It now asks the player's own component
     -- instead, so the walk is only needed while that route is unavailable.
@@ -2095,7 +2127,7 @@ local function stepKind(cfg)
             -- still drops the thousands of stone and wood spawners in it.
             local tex = nil
             if not skip and spec.iconFor ~= nil then
-                tex = spec.iconFor(a)
+                tex = spec.iconFor(a, cfg)
                 if tex == nil then skip = true end
             end
             if not skip then
@@ -2117,6 +2149,26 @@ local function stepKind(cfg)
 
     for j = #list, count + 1, -1 do list[j] = nil end
     kindCache[spec.kind] = list
+    -- TODO(oil-radar): remove after in-game census
+    if spec.kind == "ore" then
+        -- Bucket the freshly cached resource markers by their material icon
+        -- and tack on whatever oil fields the last oil pass cached, so one
+        -- UE4SS.log line confirms every material is being detected.
+        local nOre, nCoal, nSulfur, nQuartz, nForage = 0, 0, 0, 0, 0
+        for k = 1, #list do
+            local tex = list[k].tex
+            if tex == ICON.coal then nCoal = nCoal + 1
+            elseif tex == ICON.sulfur then nSulfur = nSulfur + 1
+            elseif tex == ICON.quartz then nQuartz = nQuartz + 1
+            elseif tex == ICON.ore then nOre = nOre + 1
+            else nForage = nForage + 1 end
+        end
+        local oilCache = kindCache.oil
+        guard.log(string.format(
+            "census: ore=%d coal=%d sulfur=%d quartz=%d forage=%d oil=%d",
+            nOre, nCoal, nSulfur, nQuartz, nForage,
+            oilCache and #oilCache or 0))
+    end
     -- Remember WHEN and WHERE this pass ran, not just that it did:
     -- kindIsStale() needs both to decide the kind is worth walking again.
     kindSeen[spec.kind] = { at = os.clock(), x = c.px, y = c.py }
@@ -2137,7 +2189,10 @@ local function rebuildStatic(cfg, px, py, zoom)
     for _, spec in ipairs(STATIC_KINDS) do
         local list = kindCache[spec.kind]
         if list ~= nil then
-            local visible = cfg[spec.cfg] == true
+            -- Per-marker filtering already happened at scan time
+            -- (resourceIcon declines what no listed toggle wants), so the
+            -- kind-level check only has to be "is ANY of them wanted".
+            local visible = kindEnabled(cfg, spec)
             local isCamp = spec.kind == "camp"
             for i = 1, #list do
                 local p = list[i]

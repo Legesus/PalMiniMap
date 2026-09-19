@@ -116,7 +116,12 @@ local LAYOUT = {
     { key = "showTowers",        label = "Show towers",              kind = "bool" },
     { key = "showBaseCamps",     label = "Show player base camps",   kind = "bool" },
     { key = "showEnemyCamps",    label = "Show enemy camps",         kind = "bool" },
-    { key = "showResources",     label = "Show ore / lotus / junk",  kind = "bool" },
+    { key = "showResources",     label = "Show forage / lotus / junk", kind = "bool" },
+    { key = "showOre",           label = "Show ore",                 kind = "bool" },
+    { key = "showCoal",          label = "Show coal",                kind = "bool" },
+    { key = "showSulfur",        label = "Show sulfur",              kind = "bool" },
+    { key = "showQuartz",        label = "Show quartz",              kind = "bool" },
+    { key = "showOil",           label = "Show oil fields",          kind = "bool" },
     { key = "showFishing",       label = "Show fishing spots",       kind = "bool" },
     { key = "showTreasureMaps",  label = "Show buried treasure",     kind = "bool" },
 

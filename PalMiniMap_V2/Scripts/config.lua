@@ -152,7 +152,12 @@ local DEFAULTS = {
     -- resource-dense area can push chests, dungeons and fast travel points
     -- off the minimap. Raising `maxPoiIcons` is the lever if that happens
     -- (it resizes the icon pool, so it costs a rebuild and some widgets).
-    showResources      = true,   -- ore, stat-fruit lotuses, forage, junk
+    showResources      = true,   -- stat-fruit lotuses, forage, junk
+    showOre            = true,   -- iron / copper / crystal / nightstone nodes
+    showCoal           = true,   -- coal nodes
+    showSulfur         = true,   -- sulfur nodes
+    showQuartz         = true,   -- quartz nodes
+    showOil            = true,   -- crude oil fields (Feybreak / Sunlit / Oasis)
     showFishing        = true,
     showTreasureMaps   = true,
     showDungeons       = true,
